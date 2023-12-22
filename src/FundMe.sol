@@ -7,12 +7,12 @@ error FundMe__NotOwner();
 
 contract FundMe {
     using PriceConverter for uint256;
-    address public immutable i_owner;
+    address private immutable i_owner;
 
     uint256 public constant MINIMUM_USD = 5 * 10 ** 18;
-    address[] public funders;
+    address[] public s_funders;
     mapping(address => uint256 funderMappedToAmountFunded)
-        public addressToAmountFunded;
+        public s_addressToAmountFunded;
     AggregatorV3Interface private s_priceFeed;
 
     constructor(address priceFeed) {
@@ -22,11 +22,11 @@ contract FundMe {
 
     function fund() public payable {
         require(
-            msg.value.getConversionRate() >= MINIMUM_USD,
+            msg.value.getConversionRate(s_priceFeed) >= MINIMUM_USD,
             "didn't send enoough"
         );
-        funders.push(msg.sender);
-        addressToAmountFunded[msg.sender] += msg.value;
+        s_funders.push(msg.sender);
+        s_addressToAmountFunded[msg.sender] += msg.value;
     }
 
     modifier onlyOwner() {
@@ -41,15 +41,16 @@ contract FundMe {
     }
 
     function withdraw() public onlyOwner {
+        uint256 fundersLength = s_funders.length;
         for (
             uint256 funderIndex = 0;
-            funderIndex < funders.length;
+            funderIndex < fundersLength;
             funderIndex++
         ) {
-            address funder = funders[funderIndex];
-            addressToAmountFunded[funder] = 0;
+            address funder = s_funders[funderIndex];
+            s_addressToAmountFunded[funder] = 0;
         }
-        funders = new address[](0);
+        s_funders = new address[](0);
         // // transfer
         // payable(msg.sender).transfer(address(this).balance);
 
@@ -82,5 +83,19 @@ contract FundMe {
 
     receive() external payable {
         fund();
+    }
+
+    function getAddressToAmoundFunded(
+        address fundingAddress
+    ) external view returns (uint256) {
+        return s_addressToAmountFunded[fundingAddress];
+    }
+
+    function getFunder(uint256 index) external view returns (address) {
+        return s_funders[index];
+    }
+
+    function getOwner() external view returns (address) {
+        return i_owner;
     }
 }
